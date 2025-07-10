@@ -9,7 +9,7 @@ This demo supports a broader digital twin system built for planning, hazard miti
 ## Live Viewer
 
 Access the map viewer here:  
-https://halima0805.github.io/Windsor_DT_Viewer/viewer/
+https://halima0805.github.io/Windsor_DT_Viewer/
 
 ## Contents
 
