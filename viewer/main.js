@@ -15,7 +15,7 @@ const floodLayer = L.layerGroup().addTo(map);
 fetch('axisgis_zoning_live.geojson')
   .then(res => res.json())
   .then(data => {
-    L.geoJSON(data, {
+    const layer = L.geoJSON(data, {
       style: {
         color: '#3f51b5',
         weight: 1,
@@ -26,6 +26,7 @@ fetch('axisgis_zoning_live.geojson')
         layer.bindPopup(`Zoning District: ${zone}`);
       }
     }).addTo(zoningLayer);
+    map.fitBounds(layer.getBounds());
   })
   .catch(err => console.error('Error loading zoning layer:', err));
 
@@ -33,7 +34,7 @@ fetch('axisgis_zoning_live.geojson')
 fetch('parcels.geojson')
   .then(res => res.json())
   .then(data => {
-    L.geoJSON(data, {
+    const layer = L.geoJSON(data, {
       style: {
         color: '#ff9800',
         weight: 1,
@@ -44,6 +45,7 @@ fetch('parcels.geojson')
         layer.bindPopup(`Parcel Owner: ${owner}`);
       }
     }).addTo(parcelsLayer);
+    map.fitBounds(layer.getBounds());
   })
   .catch(err => console.error('Error loading parcels layer:', err));
 
@@ -51,7 +53,7 @@ fetch('parcels.geojson')
 fetch('flood_zones.geojson')
   .then(res => res.json())
   .then(data => {
-    L.geoJSON(data, {
+    const layer = L.geoJSON(data, {
       style: feature => ({
         color: feature.properties?.FLD_ZONE === 'AE' ? '#f44336' : '#2196f3',
         weight: 1,
@@ -62,6 +64,7 @@ fetch('flood_zones.geojson')
         layer.bindPopup(`Flood Zone: ${zone}`);
       }
     }).addTo(floodLayer);
+    map.fitBounds(layer.getBounds());
   })
   .catch(err => console.error('Error loading flood layer:', err));
 
