@@ -10,7 +10,6 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 const zoningLayer = L.layerGroup().addTo(map);
 const parcelsLayer = L.layerGroup().addTo(map);
 const floodLayer = L.layerGroup().addTo(map);
-const anrLandUnitsLayer = L.layerGroup().addTo(map);
 
 // Load Zoning Layer
 fetch('axisgis_zoning_live.geojson')
@@ -69,46 +68,9 @@ fetch('flood_zones.geojson')
   })
   .catch(err => console.error('Error loading flood layer:', err));
 
-// Load ANR Land Units (static GeoJSON)
-fetch('data/anr/anr_land_units.geojson')   // <-- make sure this path matches your repo
-  .then(res => {
-    if (!res.ok) throw new Error('ANR HTTP ' + res.status);
-    return res.json();
-  })
-  .then(data => {
-    const layer = L.geoJSON(data, {
-      style: { color: '#006d2c', weight: 1.6, fillOpacity: 0.08 },
-      onEachFeature: function (feature, layer) {
-        const p = feature.properties || {};
-        const unit = p.Unit || p.UNIT || p.NAME || p.Name || 'ANR Unit';
-        const dept = p.ANRDept || p.Department || p.DEPT || '';
-        layer.bindPopup(
-          `<div style="font:13px system-ui"><b>${unit}</b>${dept ? `<br>${dept}` : ''}</div>`
-        );
-      }
-    }).addTo(anrLandUnitsLayer);
-  })
-  .catch(err => console.error('Error loading ANR Land Units:', err));
-
-const anrLandUnitsLive = L.esri.featureLayer({
-  url: 'https://anrmaps.vermont.gov/arcgis/rest/services/Open_Data/OPENDATA_ANR_CADASTRAL_SP_NOCACHE_v2/MapServer/38',
-  minZoom: 8,
-  simplifyFactor: 0.5,
-  precision: 5,
-  style: { color: '#006d2c', weight: 1.6, fillOpacity: 0.08 }
-})
-.bindPopup(l => {
-  const p = l.feature?.properties || {};
-  const unit = p.Unit || p.UNIT || p.NAME || p.Name || 'ANR Unit';
-  const dept = p.ANRDept || p.Department || p.DEPT || '';
-  return `<div style="font:13px system-ui"><b>${unit}</b>${dept ? `<br>${dept}` : ''}</div>`;
-})
-.addTo(map);
-
 // Add toggle layer control
 L.control.layers(null, {
   "Zoning Districts": zoningLayer,
   "Parcel Boundaries": parcelsLayer,
   "FEMA Flood Zones": floodLayer
-  "ANR Land Units": anrLandUnitsLayer
 }).addTo(map);
