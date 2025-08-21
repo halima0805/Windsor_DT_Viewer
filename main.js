@@ -10,6 +10,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 const zoningLayer = L.layerGroup().addTo(map);
 const parcelsLayer = L.layerGroup().addTo(map);
 const floodLayer = L.layerGroup().addTo(map);
+const anrLandUnitsLayer = L.layerGroup().addTo(map);
 
 // Load Zoning Layer
 fetch('axisgis_zoning_live.geojson')
