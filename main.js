@@ -90,6 +90,21 @@ fetch('data/anr/anr_land_units.geojson')   // <-- make sure this path matches yo
   })
   .catch(err => console.error('Error loading ANR Land Units:', err));
 
+const anrLandUnitsLive = L.esri.featureLayer({
+  url: 'https://anrmaps.vermont.gov/arcgis/rest/services/Open_Data/OPENDATA_ANR_CADASTRAL_SP_NOCACHE_v2/MapServer/38',
+  minZoom: 8,
+  simplifyFactor: 0.5,
+  precision: 5,
+  style: { color: '#006d2c', weight: 1.6, fillOpacity: 0.08 }
+})
+.bindPopup(l => {
+  const p = l.feature?.properties || {};
+  const unit = p.Unit || p.UNIT || p.NAME || p.Name || 'ANR Unit';
+  const dept = p.ANRDept || p.Department || p.DEPT || '';
+  return `<div style="font:13px system-ui"><b>${unit}</b>${dept ? `<br>${dept}` : ''}</div>`;
+})
+.addTo(map);
+
 // Add toggle layer control
 L.control.layers(null, {
   "Zoning Districts": zoningLayer,
