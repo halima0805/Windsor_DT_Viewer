@@ -1,51 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Windsor Digital Twin Viewer</title>
-
-  <!-- Leaflet core CSS -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha512-p6IMjM/TB0r6r4M6n4y2iCw6l3y1vG1gX8S6wqHq2g2C9j9s2h5xw+K0f3o9c2bG8JtJZt3mN8dQF5x5G6fZ0w=="
-    crossorigin=""
-  />
-
-  <!-- Geocoder control CSS (keyless address search) -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css"
-  />
-
-  <!-- Your optional stylesheet -->
-  <link rel="stylesheet" href="./map.css" />
-
-  <!-- Fallback so the map always fills the page even if map.css is empty -->
-  <style>
-    html, body, #map { height: 100%; margin: 0; }
-    /* Optional: keep geocoder box tidy */
-    .leaflet-control-geocoder { max-width: 320px; }
-  </style>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="map.css" />
 </head>
 <body>
   <div id="map"></div>
 
-  <!-- Leaflet core JS -->
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha512-YqGk6rj8d7F4w4x3m0gQ8nq5yqf6f2G+7oJwHk0z3JQxQq0f9W6Q8jV5mH6pXw1s3z2k6e7nQH7E2e6tL0bXQw=="
-    crossorigin=""
-  ></script>
-
-  <!-- Esri Leaflet (lets Leaflet read ArcGIS FeatureServer layers without keys) -->
-  <script src="https://unpkg.com/esri-leaflet@3/dist/esri-leaflet.js"></script>
-
-  <!-- Address search (keyless; uses OSM/Nominatim) -->
-  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
-
-  <!-- Your app logic -->
-  <script src="./main.js"></script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>
