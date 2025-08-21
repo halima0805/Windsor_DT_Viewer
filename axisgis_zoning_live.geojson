@@ -3,21 +3,16 @@
   "features": [
     {
       "type": "Feature",
-      "properties": {
-        "zone": "Residential",
-        "district": "R-1"
-      },
+      "properties": { "zone": "Residential", "district": "R-1" },
       "geometry": {
         "type": "Polygon",
-        "coordinates": [
-          [
-            [-72.384, 43.480],
-            [-72.384, 43.481],
-            [-72.383, 43.481],
-            [-72.383, 43.480],
-            [-72.384, 43.480]
-          ]
-        ]
+        "coordinates": [[
+          [-72.384, 43.480],
+          [-72.384, 43.481],
+          [-72.383, 43.481],
+          [-72.383, 43.480],
+          [-72.384, 43.480]
+        ]]
       }
     }
   ]
