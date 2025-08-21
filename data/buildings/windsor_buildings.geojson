@@ -1,0 +1,19 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "Sample Building", "floors": 2, "height_m": 6 },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-72.3853, 43.4805],
+          [-72.3849, 43.4805],
+          [-72.3849, 43.4807],
+          [-72.3853, 43.4807],
+          [-72.3853, 43.4805]
+        ]]
+      }
+    }
+  ]
+}
