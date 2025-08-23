@@ -1,11 +1,10 @@
-// 3d.js — Windsor 3D with terrain (no keys)
+// Windsor 3D with terrain (no API keys)
 
-// Paths
 const BASE = '/Windsor_DT_Viewer';
 const BLD_URL = `${BASE}/data/buildings/windsor_buildings_3d.geojson`;
 const CENTER = [-72.3851, 43.4806];
 
-// Basemap (OSM raster)
+// OSM raster basemap
 const style = {
   version: 8,
   sources: {
@@ -35,14 +34,7 @@ const map = new maplibregl.Map({
 map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 
 map.on('load', async () => {
-  // Terrain sources (both available without keys)
-  map.addSource('terrain-rgb', {
-    type: 'raster-dem',
-    tiles: ['https://demotiles.maplibre.org/terrain-tiles/{z}/{x}/{y}.png'],
-    tileSize: 256,
-    maxzoom: 14,
-    encoding: 'mapbox'
-  });
+  // DEM: AWS Terrarium (very reliable) — use as the active terrain source
   map.addSource('terrain-terrarium', {
     type: 'raster-dem',
     tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
@@ -51,20 +43,18 @@ map.on('load', async () => {
     encoding: 'terrarium',
     attribution: 'Elevation: AWS Terrain Tiles'
   });
+  map.setTerrain({ source: 'terrain-terrarium', exaggeration: 3.0 });
 
-  // Pick one (try demo first; you can switch to 'terrain-terrarium' to compare)
-  map.setTerrain({ source: 'terrain-rgb', exaggeration: 2.6 });
-
-  // Hillshade on top of the DEM
+  // Hillshade from the DEM
   map.addLayer({
     id: 'hillshade',
     type: 'hillshade',
-    source: 'terrain-rgb',
+    source: 'terrain-terrarium',
     paint: { 'hillshade-exaggeration': 0.7 },
     layout: { visibility: 'visible' }
   });
 
-  // Optional satellite (off by default)
+  // Optional satellite (hidden by default)
   map.addSource('esri-sat', {
     type: 'raster',
     tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
@@ -76,7 +66,7 @@ map.on('load', async () => {
 
   map.setFog({ 'horizon-blend': 0.2, range: [0.5, 10], 'star-intensity': 0 });
 
-  // Buildings (if your GeoJSON exists)
+  // Buildings (will extrude if your GeoJSON exists and has polygons)
   try {
     const gj = await fetch(BLD_URL, { cache: 'no-cache' }).then(r => r.json());
     (gj.features || []).forEach(f => {
@@ -108,7 +98,7 @@ map.on('load', async () => {
     });
   } catch (_) {}
 
-  // Simple UI hooks if present in 3d.html
+  // UI toggles (IDs are unique in 3d.html)
   const toggleSat = document.getElementById('toggleSat');
   if (toggleSat) {
     toggleSat.addEventListener('change', () => {
@@ -119,18 +109,6 @@ map.on('load', async () => {
   if (toggleShade) {
     toggleShade.addEventListener('change', () => {
       map.setLayoutProperty('hillshade', 'visibility', toggleShade.checked ? 'visible' : 'none');
-    });
-  }
-
-  // Quick exaggeration slider injected if none exists (helps confirm relief)
-  if (!document.getElementById('exag')) {
-    const box = document.createElement('div');
-    box.style.cssText = 'position:absolute;z-index:3;top:10px;left:260px;background:#fff;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font:14px system-ui;';
-    box.innerHTML = 'Exaggeration <input id="exag" type="range" min="1" max="5" step="0.1" value="2.6">';
-    document.body.appendChild(box);
-    document.getElementById('exag').addEventListener('input', (e) => {
-      const v = Number(e.target.value);
-      map.setTerrain({ source: 'terrain-rgb', exaggeration: v });
     });
   }
 });
