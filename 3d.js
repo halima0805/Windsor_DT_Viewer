@@ -1,5 +1,3 @@
-// 3d.js — Windsor 3D map with terrain and building extrusions (no API keys)
-
 const BASE    = '/Windsor_DT_Viewer';
 const BLD_URL = `${BASE}/data/buildings/windsor_buildings_3d.geojson`;
 const CENTER  = [-72.3851, 43.4806];
@@ -33,7 +31,6 @@ const map = new maplibregl.Map({
 map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 
 map.on('load', async () => {
-  // DEM (AWS Terrarium)
   map.addSource('terrain-dem', {
     type: 'raster-dem',
     tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
@@ -42,10 +39,8 @@ map.on('load', async () => {
     encoding: 'terrarium',
     attribution: 'Elevation: AWS Terrain Tiles'
   });
-  
   map.setTerrain({ source: 'terrain-dem', exaggeration: 2.0 });
 
-  // Hillshade
   map.addLayer({
     id: 'hillshade',
     type: 'hillshade',
@@ -56,10 +51,9 @@ map.on('load', async () => {
       'hillshade-highlight-color':'rgba(255,255,255,0.15)',
       'hillshade-accent-color':   'rgba(0,0,0,0.10)'
     },
-    layout: { visibility: 'none' }
+    layout: { visibility: 'visible' }
   });
 
-  // Satellite (Esri World Imagery)
   map.addSource('esri-sat', {
     type: 'raster',
     tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
@@ -71,7 +65,6 @@ map.on('load', async () => {
 
   map.setSky({ 'sun': [0, 90], 'sun-intensity': 8, 'sky-type': 'atmosphere' });
 
-  // UI toggles (require #toggleSat and #toggleShade in 3d.html)
   const toggleSat   = document.getElementById('toggleSat');
   const toggleShade = document.getElementById('toggleShade');
 
@@ -90,7 +83,6 @@ map.on('load', async () => {
     });
   }
 
-  // Optional buildings
   try {
     const gj = await fetch(BLD_URL, { cache: 'no-cache' }).then(r => r.json());
     (gj.features || []).forEach(f => {
@@ -100,7 +92,6 @@ map.on('load', async () => {
         p.height_m = lv * 3.0;
       }
     });
-
     map.addSource('windsor-buildings', { type: 'geojson', data: gj });
     map.addLayer({
       id: 'windsor-buildings-3d',
