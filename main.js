@@ -7,6 +7,14 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors'
 }).addTo(map);
 
+// Draw-order panes (higher zIndex draws on top)
+map.createPane('paneParcels');   map.getPane('paneParcels').style.zIndex   = 420;
+map.createPane('paneZoning');    map.getPane('paneZoning').style.zIndex    = 430;
+map.createPane('paneOverlay');   map.getPane('paneOverlay').style.zIndex   = 440;
+map.createPane('paneFlood');     map.getPane('paneFlood').style.zIndex     = 450;
+map.createPane('paneBuildings'); map.getPane('paneBuildings').style.zIndex = 460;
+map.createPane('paneAnr');       map.getPane('paneAnr').style.zIndex       = 410;
+
 // Paths (GitHub Pages)
 const BASE            = '/Windsor_DT_Viewer';
 const ZONING_LOCAL    = `${BASE}/data/zoning_layers/axisgis_zoning_live.geojson`;
@@ -18,15 +26,16 @@ const OVERLAY_LOCAL   = `${BASE}/data/zoning_layers/windsor_zoning_overlay.geojs
 // Layer groups
 const zoningLayer        = L.layerGroup().addTo(map);
 const floodLayer         = L.layerGroup().addTo(map);
-const buildingsLayer     = L.layerGroup();
-const anrLayer           = L.layerGroup();
-const zoningOverlayLayer = L.layerGroup();
+const buildingsLayer     = L.layerGroup().addTo(map);
+const anrLayer           = L.layerGroup().addTo(map);
+const zoningOverlayLayer = L.layerGroup().addTo(map);
 
 // Zoning
 fetch(ZONING_LOCAL)
   .then(r => r.json())
   .then(gj => {
     const lyr = L.geoJSON(gj, {
+      pane: 'paneZoning',
       style: { color: '#3f51b5', weight: 1, fillOpacity: 0.10 },
       onEachFeature: (f, l) => {
         const z = f.properties?.ZONE || 'N/A';
@@ -42,6 +51,7 @@ const PARCELS_URL =
   'https://services1.arcgis.com/BkFxaEFNwHqX3tAw/arcgis/rest/services/FS_VCGI_OPENDATA_Cadastral_VTPARCELS_poly_standardized_parcels_SP_v1/FeatureServer/0';
 
 const parcelsLive = L.esri.featureLayer({
+  pane: 'paneParcels',
   url: PARCELS_URL,
   where: "UPPER(TNAME) = 'WINDSOR'",
   fields: ['OBJECTID','TNAME','PARCID','OWNER1','E911ADDR','ACRESGL'],
@@ -74,10 +84,11 @@ fetch(FLOOD_LOCAL)
   .then(r => r.json())
   .then(gj => {
     L.geoJSON(gj, {
+      pane: 'paneFlood',
       style: f => ({
-        color: f.properties?.FLD_ZONE === 'AE' ? '#f44336' : '#2196f3',
-        weight: 1,
-        fillOpacity: 0.3
+        color: (f.properties?.FLD_ZONE || '').toUpperCase() === 'AE' ? '#d32f2f' : '#1976d2',
+        weight: 1.2,
+        fillOpacity: 0.20
       }),
       onEachFeature: (f, l) => {
         const z = f.properties?.FLD_ZONE || 'N/A';
@@ -92,18 +103,18 @@ fetch(BUILDINGS_GJ)
   .then(r => r.json())
   .then(gj => {
     L.geoJSON(gj, {
-      style: { color:'#0c2038', weight:0.5, fillColor:'#8fb4d9', fillOpacity:0.5 },
+      pane: 'paneBuildings',
+      style: { color:'#0c2038', weight:0.5, fillColor:'#8fb4d9', fillOpacity:0.55 },
       onEachFeature: (f, l) => {
         const p = f.properties || {};
         const nm = p.name || 'Building';
-        const h  = p.height_m;
+        const h  = Number(p.height_m ?? p.height ?? p.levels ?? p['building:levels']) || null;
         l.bindPopup(`<div style="font:13px system-ui">
           <div style="font-weight:600;margin-bottom:4px">${nm}</div>
-          ${h ? `Height (est): ${Number(h).toFixed(1)} m` : ''}
+          ${h ? `Estimated height: ${h.toFixed(1)} m` : ''}
         </div>`);
       }
     }).addTo(buildingsLayer);
-    layerControl.addOverlay(buildingsLayer, 'Buildings');
   })
   .catch(e => console.warn('buildings load', e));
 
@@ -112,6 +123,7 @@ fetch(ANR_GJ)
   .then(r => r.json())
   .then(gj => {
     L.geoJSON(gj, {
+      pane: 'paneAnr',
       style: { color:'#2e7d32', weight:1, fillOpacity:0.15 },
       onEachFeature: (f, l) => {
         const p = f.properties || {};
@@ -123,7 +135,6 @@ fetch(ANR_GJ)
         </div>`);
       }
     }).addTo(anrLayer);
-    layerControl.addOverlay(anrLayer, 'ANR Land Units');
   })
   .catch(e => console.warn('anr load', e));
 
@@ -132,7 +143,8 @@ fetch(OVERLAY_LOCAL)
   .then(r => r.json())
   .then(gj => {
     L.geoJSON(gj, {
-      style: { color:'#9c27b0', weight:2, dashArray:'4,2', fillOpacity:0.15 },
+      pane: 'paneOverlay',
+      style: { color:'#8e24aa', weight:2, dashArray:'4,2', fillOpacity:0.15 },
       onEachFeature: (f, l) => {
         const p = f.properties || {};
         const name = p.NAME || p.ZONENAME || p.DISTRICT || 'Overlay';
@@ -151,5 +163,7 @@ const layerControl = L.control.layers(null, {
   'Parcels (VCGI live)': parcelsLive,
   'Zoning Districts': zoningLayer,
   'Zoning Overlay (Windsor)': zoningOverlayLayer,
-  'FEMA Flood Zones': floodLayer
+  'FEMA Flood Zones': floodLayer,
+  'Buildings': buildingsLayer,
+  'ANR Land Units': anrLayer
 }, { collapsed: false }).addTo(map);
