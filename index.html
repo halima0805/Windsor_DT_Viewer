@@ -1,15 +1,26 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Windsor Digital Twin Viewer</title>
   <meta charset="utf-8" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <link rel="stylesheet" href="map.css" />
+  <title>Windsor Digital Twin Viewer — 2D</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="./map.css" />
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+    .mode-switch {
+      position: absolute; z-index: 9999; top: 10px; left: 10px;
+      background:#fff; border:1px solid #ddd; border-radius:8px; padding:6px 10px;
+      box-shadow:0 2px 8px rgba(0,0,0,.15); font:14px/1.2 system-ui;
+    }
+    .mode-switch a { text-decoration:none; color:#0a4; font-weight:600; }
+  </style>
 </head>
 <body>
   <div id="map"></div>
+  <div class="mode-switch"><a href="/Windsor_DT_Viewer/3d.html">🌐 3D</a></div>
 
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="main.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="./main.js"></script>
 </body>
 </html>
