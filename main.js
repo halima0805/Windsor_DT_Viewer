@@ -115,9 +115,32 @@ const anrLandUnits = fetch('data/anr/anr_land_units.geojson')
   .then(layer => { overlays['ANR Land Units'] = layer; })
   .catch(e => console.warn('ANR Land Units failed:', e));
 
+// Zoning overlay (Windsor)
+const OVERLAY_URL = '/Windsor_DT_Viewer/data/zoning_layers/windsor_zoning_overlay.geojson';
+const zoningOverlayLayer = L.layerGroup().addTo(map);
+
+fetch(OVERLAY_URL)
+  .then(r => r.json())
+  .then(gj => {
+    L.geoJSON(gj, {
+      style: { color: '#9c27b0', weight: 2, dashArray: '4,2', fillOpacity: 0.15 },
+      onEachFeature: (f, lyr) => {
+        const p = f.properties || {};
+        const name = p.NAME || p.ZONENAME || p.DISTRICT || 'Overlay';
+        const desc = p.DESCRIPTION || p.OVERLAY || '';
+        lyr.bindPopup(`<div style="font:13px system-ui">
+          <div style="font-weight:600;margin-bottom:4px">${name}</div>
+          ${desc ? `<div>${desc}</div>` : ''}
+        </div>`);
+      }
+    }).addTo(zoningOverlayLayer);
+  })
+  .catch(e => console.error('Overlay load error:', e));
+
 // ---- Layer control (use the live parcels layer)
 L.control.layers(null, {
   "Parcels (VCGI live)": parcelsLive,
   "Zoning Districts": zoningLayer,
+  "Zoning Overlay (Windsor)": zoningOverlayLayer,
   "FEMA Flood Zones": floodLayer
 }, { collapsed: false }).addTo(map);
