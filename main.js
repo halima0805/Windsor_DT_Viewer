@@ -79,34 +79,71 @@ L.esri.query({ url: PARCELS_URL })
   .where("UPPER(TNAME) = 'WINDSOR'")
   .bounds((err, b) => { if (!err && b) map.fitBounds(b, { padding:[20,20] }); });
 
-// FEMA Flood Hazard (ANR live)
-const FEMA_URL =
-  'https://anrmaps.vermont.gov/arcgis/rest/services/Open_Data/OPENDATA_ANR_EMERGENCY_SP_NOCACHE_v2/MapServer/57';
+// FEMA flood (ANR). Feature layer with fallback to dynamic map.
+const FEMA_MAPSERVICE = 'https://anrmaps.vermont.gov/arcgis/rest/services/Open_Data/OPENDATA_ANR_EMERGENCY_SP_NOCACHE_v2/MapServer';
+const FEMA_LAYER_ID = 57;
 
-const femaFlood = L.esri.featureLayer({
+let femaFeature = null;
+let femaFallback = null;
+let fallbackTimer = null;
+
+// Try vector features first
+femaFeature = L.esri.featureLayer({
+  url: `${FEMA_MAPSERVICE}/${FEMA_LAYER_ID}`,
   pane: 'paneFlood',
-  url: FEMA_URL,
   minZoom: 11,
+  fields: ['FLD_ZONE','SFHA_TF'],
   simplifyFactor: 0.5,
   precision: 5,
-  fields: ['OBJECTID','FLD_ZONE','SFHA_TF'],
-  style: function (feature) {
-    const z = feature.properties && feature.properties.FLD_ZONE;
-    return {
-      color: z === 'AE' ? '#d32f2f' : '#1976d2',
-      weight: 1.2,
-      fillOpacity: 0.20
-    };
+  style: (feature) => {
+    const z = feature?.properties?.FLD_ZONE;
+    return { color: z === 'AE' ? '#d32f2f' : '#1976d2', weight: 1.2, fillOpacity: 0.20 };
   }
 })
-.bindPopup(function (layer) {
-  const p = layer.feature && layer.feature.properties || {};
+.bindPopup((layer) => {
+  const p = layer.feature?.properties || {};
   return `<div style="font:13px system-ui">
     <div style="font-weight:600">Flood Zone: ${p.FLD_ZONE || 'N/A'}</div>
     ${p.SFHA_TF ? `<div>Special Flood Hazard Area: ${p.SFHA_TF}</div>` : ''}
   </div>`;
 })
 .addTo(floodLayer);
+
+// diagnostics + fallback
+femaFeature.on('load', () => {
+  console.log('FEMA feature layer loaded');
+  if (fallbackTimer) clearTimeout(fallbackTimer);
+});
+femaFeature.on('requesterror', (e) => console.error('FEMA feature error', e));
+
+// If nothing loads within 5s, switch to image tiles
+fallbackTimer = setTimeout(() => {
+  if (femaFallback) return;
+  console.warn('Switching to FEMA dynamic map fallback');
+  femaFallback = L.esri.dynamicMapLayer({
+    url: FEMA_MAPSERVICE,
+    layers: [FEMA_LAYER_ID],
+    opacity: 0.5,
+    pane: 'paneFlood'
+  }).addTo(floodLayer);
+
+  // simple identify on click for fallback
+  map.on('click', (e) => {
+    L.esri.identifyMapService({ url: FEMA_MAPSERVICE })
+      .on(map)
+      .at(e.latlng)
+      .layers(`visible:${FEMA_LAYER_ID}`)
+      .run((err, res) => {
+        if (err || !res?.results?.length) return;
+        const attrs = res.results[0].attributes || {};
+        const html = `<div style="font:13px system-ui">
+          <div style="font-weight:600">Flood Zone: ${attrs.FLD_ZONE || 'N/A'}</div>
+          ${attrs.SFHA_TF ? `<div>Special Flood Hazard Area: ${attrs.SFHA_TF}</div>` : ''}
+        </div>`;
+        L.popup().setLatLng(e.latlng).setContent(html).openOn(map);
+      });
+  });
+}, 5000);
 
 // Buildings (local)
 fetch(BUILDINGS_GJ)
