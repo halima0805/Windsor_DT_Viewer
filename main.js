@@ -79,24 +79,34 @@ L.esri.query({ url: PARCELS_URL })
   .where("UPPER(TNAME) = 'WINDSOR'")
   .bounds((err, b) => { if (!err && b) map.fitBounds(b, { padding:[20,20] }); });
 
-// Flood
-fetch(FLOOD_LOCAL)
-  .then(r => r.json())
-  .then(gj => {
-    L.geoJSON(gj, {
-      pane: 'paneFlood',
-      style: f => ({
-        color: (f.properties?.FLD_ZONE || '').toUpperCase() === 'AE' ? '#d32f2f' : '#1976d2',
-        weight: 1.2,
-        fillOpacity: 0.20
-      }),
-      onEachFeature: (f, l) => {
-        const z = f.properties?.FLD_ZONE || 'N/A';
-        l.bindPopup(`Flood Zone: ${z}`);
-      }
-    }).addTo(floodLayer);
-  })
-  .catch(e => console.error('flood load', e));
+// FEMA Flood Hazard (ANR live)
+const FEMA_URL =
+  'https://anrmaps.vermont.gov/arcgis/rest/services/Open_Data/OPENDATA_ANR_EMERGENCY_SP_NOCACHE_v2/MapServer/57';
+
+const femaFlood = L.esri.featureLayer({
+  pane: 'paneFlood',
+  url: FEMA_URL,
+  minZoom: 11,
+  simplifyFactor: 0.5,
+  precision: 5,
+  fields: ['OBJECTID','FLD_ZONE','SFHA_TF'],
+  style: function (feature) {
+    const z = feature.properties && feature.properties.FLD_ZONE;
+    return {
+      color: z === 'AE' ? '#d32f2f' : '#1976d2',
+      weight: 1.2,
+      fillOpacity: 0.20
+    };
+  }
+})
+.bindPopup(function (layer) {
+  const p = layer.feature && layer.feature.properties || {};
+  return `<div style="font:13px system-ui">
+    <div style="font-weight:600">Flood Zone: ${p.FLD_ZONE || 'N/A'}</div>
+    ${p.SFHA_TF ? `<div>Special Flood Hazard Area: ${p.SFHA_TF}</div>` : ''}
+  </div>`;
+})
+.addTo(floodLayer);
 
 // Buildings (local)
 fetch(BUILDINGS_GJ)
