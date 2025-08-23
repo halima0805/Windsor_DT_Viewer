@@ -66,6 +66,29 @@ map.on('load', async () => {
 
   map.setFog({ 'horizon-blend': 0.2, range: [0.5, 10], 'star-intensity': 0 });
 
+  // --- UI toggles (checkboxes in 3d.html)
+const toggleSat   = document.getElementById('toggleSat');
+const toggleShade = document.getElementById('toggleShade');
+
+function applyBase() {
+  const satOn = toggleSat && toggleSat.checked;
+  map.setLayoutProperty('satellite', 'visibility', satOn ? 'visible' : 'none');
+  map.setLayoutProperty('osm',       'visibility', satOn ? 'none'    : 'visible');
+}
+
+// initialize + wire events
+if (toggleSat) {
+  applyBase();
+  toggleSat.addEventListener('change', applyBase);
+}
+
+if (toggleShade) {
+  toggleShade.addEventListener('change', () => {
+    map.setLayoutProperty('hillshade', 'visibility',
+      toggleShade.checked ? 'visible' : 'none');
+  });
+}
+
   // Buildings (will extrude if your GeoJSON exists and has polygons)
   try {
     const gj = await fetch(BLD_URL, { cache: 'no-cache' }).then(r => r.json());
