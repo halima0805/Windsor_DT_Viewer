@@ -24,7 +24,11 @@
 <body>
   <div id="map"></div>
   <div class="mode-switch"><a href="/Windsor_DT_Viewer/">2D map</a></div>
-
+  <div style="position:absolute;z-index:3;top:10px;left:90px;background:#fff;border:1px solid #ddd;border-radius:8px;padding:6px 10px;">
+    <label><input type="checkbox" id="toggleSat"> Satellite</label>
+    <label style="margin-left:10px;"><input type="checkbox" id="toggleShade" checked> Hillshade</label>
+  </div>
+  
   <!-- simple 3D toggles -->
   <div id="ui3d">
     <label><input type="checkbox" id="toggleSat"> Satellite</label>
