@@ -1,8 +1,9 @@
-// Minimal 3D terrain sanity check for Windsor
+// Windsor 3D with terrain (no API keys)
+const BASE    = '/Windsor_DT_Viewer';
+const BLD_URL = `${BASE}/data/buildings/windsor_buildings_3d.geojson`;
+const CENTER  = [-72.3851, 43.4806];
 
-const WINDSOR_CENTER = [-72.3851, 43.4806];
-
-// Style with OSM raster only
+// OSM raster basemap
 const style = {
   version: 8,
   sources: {
@@ -23,7 +24,7 @@ const style = {
 const map = new maplibregl.Map({
   container: 'map',
   style,
-  center: WINDSOR_CENTER,
+  center: CENTER,
   zoom: 13.5,
   pitch: 60,
   bearing: -17
@@ -31,51 +32,31 @@ const map = new maplibregl.Map({
 
 map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 
-// Log any errors so we can see them
-map.on('error', e => console.error('Map error:', e.error || e));
-
-// Add terrain + hillshade + optional satellite
-map.on('load', () => {
-  console.log('Map style loaded');
-
-  // DEM: MapLibre demo tiles (terrain-RGB). Must use encoding: "mapbox".
+map.on('load', async () => {
+  // DEM: AWS Terrarium tiles
   map.addSource('terrain-dem', {
-  type: 'raster-dem',
-  tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
-  tileSize: 256,
-  maxzoom: 15,
-  encoding: 'terrarium'   // <- important
-});
-
-
-  // When DEM tiles arrive, this fires repeatedly; we’ll announce once.
-  let announced = false;
-  map.on('sourcedata', (e) => {
-    if (e.sourceId === 'terrain-dem' && map.isSourceLoaded('terrain-dem') && !announced) {
-      console.log('DEM source is loaded');
-      announced = true;
-    }
+    type: 'raster-dem',
+    tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+    tileSize: 256,
+    maxzoom: 15,
+    encoding: 'terrarium',
+    attribution: 'Elevation: AWS Terrain Tiles'
   });
+  map.setTerrain({ source: 'terrain-dem', exaggeration: 1.8 });
 
-  // Apply terrain with a big exaggeration so the relief is unmistakable
-  map.setTerrain({ source: 'terrain-dem', exaggeration: 4.0 });
-  console.log('setTerrain called');
-
-  // Hillshade derived from DEM
+  // Hillshade from DEM (visible by default)
   map.addLayer({
     id: 'hillshade',
     type: 'hillshade',
     source: 'terrain-dem',
     layout: { visibility: 'visible' },
-    paint: { 'hillshade-exaggeration': 0.8 }
+    paint: { 'hillshade-exaggeration': 0.7 }
   });
 
-  // Esri World Imagery raster (optional)
+  // Optional satellite (hidden until toggled)
   map.addSource('esri-sat', {
     type: 'raster',
-    tiles: [
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-    ],
+    tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
     tileSize: 256,
     maxzoom: 19,
     attribution: 'Imagery: Esri, Maxar, Earthstar Geographics, USDA, USGS, AeroGRID, IGN, GIS User Community'
@@ -83,26 +64,17 @@ map.on('load', () => {
   map.addLayer({ id: 'satellite', type: 'raster', source: 'esri-sat', layout: { visibility: 'none' } });
 
   // Simple sky for depth cue
-  map.setSky({
-    'sun': [0, 90],
-    'sun-intensity': 8,
-    'sky-type': 'atmosphere'
-  });
+  map.setSky({ 'sun': [0, 90], 'sun-intensity': 8, 'sky-type': 'atmosphere' });
 
-  // UI wiring
-  const baseStreets = document.getElementById('baseStreets');
-  const baseSat     = document.getElementById('baseSat');
+  // Wire the two checkboxes (optional; terrain works regardless)
+  const toggleSat   = document.getElementById('toggleSat');
   const toggleShade = document.getElementById('toggleShade');
 
-  function applyBase() {
-    const streets = baseStreets && baseStreets.checked;
-    map.setLayoutProperty('osm',       'visibility', streets ? 'visible' : 'none');
-    map.setLayoutProperty('satellite', 'visibility', streets ? 'none'    : 'visible');
-  }
-  if (baseStreets && baseSat) {
-    baseStreets.addEventListener('change', applyBase);
-    baseSat.addEventListener('change', applyBase);
-    applyBase();
+  if (toggleSat) {
+    toggleSat.addEventListener('change', () => {
+      map.setLayoutProperty('satellite', 'visibility', toggleSat.checked ? 'visible' : 'none');
+      // Leave OSM on; satellite draws above it
+    });
   }
   if (toggleShade) {
     toggleShade.addEventListener('change', () => {
@@ -110,5 +82,35 @@ map.on('load', () => {
     });
   }
 
-  console.log('3D setup complete');
+  // Optional 3D buildings (only if your GeoJSON exists)
+  try {
+    const gj = await fetch(BLD_URL, { cache: 'no-cache' }).then(r => r.json());
+    (gj.features || []).forEach(f => {
+      const p = f.properties || (f.properties = {});
+      if (p.height_m == null) {
+        const lv = Number(p['building:levels'] ?? p.levels ?? 2);
+        p.height_m = lv * 3.0;
+      }
+    });
+    map.addSource('windsor-buildings', { type: 'geojson', data: gj });
+    map.addLayer({
+      id: 'windsor-buildings-3d',
+      type: 'fill-extrusion',
+      source: 'windsor-buildings',
+      paint: {
+        'fill-extrusion-color': '#8fb4d9',
+        'fill-extrusion-opacity': 0.9,
+        'fill-extrusion-height': [
+          'coalesce',
+          ['to-number', ['get', 'height_m']],
+          ['*', 3, ['coalesce',
+            ['to-number', ['get', 'levels']],
+            ['to-number', ['get', 'building:levels']],
+            2
+          ]]
+        ],
+        'fill-extrusion-base': 0
+      }
+    });
+  } catch (_) {}
 });
