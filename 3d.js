@@ -120,18 +120,4 @@ if (toggleShade) {
       }
     });
   } catch (_) {}
-
-  // UI toggles (IDs are unique in 3d.html)
-  const toggleSat = document.getElementById('toggleSat');
-  if (toggleSat) {
-    toggleSat.addEventListener('change', () => {
-      map.setLayoutProperty('satellite', 'visibility', toggleSat.checked ? 'visible' : 'none');
-    });
-  }
-  const toggleShade = document.getElementById('toggleShade');
-  if (toggleShade) {
-    toggleShade.addEventListener('change', () => {
-      map.setLayoutProperty('hillshade', 'visibility', toggleShade.checked ? 'visible' : 'none');
-    });
-  }
 });
