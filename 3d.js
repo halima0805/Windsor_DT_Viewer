@@ -1,25 +1,23 @@
-// ------------ Windsor 3D base (public, no keys) ------------
+// ------------ Windsor 3D with terrain ------------
 const BASE = '/Windsor_DT_Viewer';
 const BLD_URL = `${BASE}/data/buildings/windsor_buildings_3d.geojson`;
+const WINDSOR_CENTER = [-72.3851, 43.4806];
 
-// Windsor center in [lng, lat] (MapLibre uses lng,lat)
-const WINDSOR_CENTER = [-72.3851, 43.4806]; // Town of Windsor, VT
-
-// Minimal style: OSM raster as background (no API key)
-const osmSource = {
-  type: 'raster',
-  tiles: [
-    'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
-  ],
-  tileSize: 256,
-  attribution: '© OpenStreetMap contributors'
-};
-
+// OSM raster basemap
 const style = {
   version: 8,
-  sources: { osm: osmSource },
+  sources: {
+    osm: {
+      type: 'raster',
+      tiles: [
+        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+      ],
+      tileSize: 256,
+      attribution: '© OpenStreetMap contributors'
+    }
+  },
   layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
 };
 
@@ -28,34 +26,57 @@ const map = new maplibregl.Map({
   style,
   center: WINDSOR_CENTER,
   zoom: 14,
-  pitch: 60,     // tilt for 3D look
-  bearing: -17   // small rotation for perspective
+  pitch: 60,
+  bearing: -17
 });
 
 map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 
-// Add buildings as 3D extrusions (from your repo GeoJSON)
 map.on('load', async () => {
+  // --- Terrain (AWS Terrarium) ---
+  map.addSource('terrain-dem', {
+    type: 'raster-dem',
+    tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+    tileSize: 256,
+    maxzoom: 15,
+    encoding: 'terrarium',
+    attribution: 'Elevation: AWS Terrain Tiles'
+  });
+  map.setTerrain({ source: 'terrain-dem', exaggeration: 1.2 });
+
+  // Hillshade from DEM
+  map.addLayer({
+    id: 'hillshade',
+    type: 'hillshade',
+    source: 'terrain-dem',
+    layout: { visibility: 'visible' },
+    paint: { 'hillshade-exaggeration': 0.5 }
+  });
+
+  // Optional satellite (Esri World Imagery) — hidden by default
+  map.addSource('esri-sat', {
+    type: 'raster',
+    tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+    tileSize: 256,
+    maxzoom: 19,
+    attribution: 'Imagery: Esri, Maxar, Earthstar Geographics, USDA, USGS, AeroGRID, IGN, GIS User Community'
+  });
+  map.addLayer({ id: 'satellite', type: 'raster', source: 'esri-sat', layout: { visibility: 'none' } });
+
+  // --- Buildings extruded from GeoJSON ---
   try {
-    // Load once to compute bounds
     const gj = await fetch(BLD_URL, { cache: 'no-cache' }).then(r => r.json());
 
-    // Add as a source for the layer
-    map.addSource('windsor-buildings', { type: 'geojson', data: gj });
+    // Ensure height
+    (gj.features || []).forEach(f => {
+      const p = f.properties || (f.properties = {});
+      if (p.height_m == null) {
+        const lv = Number(p['building:levels'] ?? p.levels ?? 2);
+        p.height_m = lv * 3.0;
+      }
+    });
 
-    // Height expression: prefer explicit "height_m"; else 3m * levels; else default 6m
-    const heightExpr = [
-      'coalesce',
-      ['to-number', ['get', 'height_m']],
-      ['*', 3,
-        ['coalesce',
-          ['to-number', ['get', 'levels']],
-          ['to-number', ['get', 'building:levels']],
-          2
-        ]
-      ],
-      6
-    ];
+    map.addSource('windsor-buildings', { type: 'geojson', data: gj });
 
     map.addLayer({
       id: 'windsor-buildings-3d',
@@ -63,37 +84,75 @@ map.on('load', async () => {
       source: 'windsor-buildings',
       paint: {
         'fill-extrusion-color': '#8fb4d9',
-        'fill-extrusion-height': heightExpr,
         'fill-extrusion-opacity': 0.9,
-        'fill-extrusion-base': 0
+        'fill-extrusion-height': [
+          'coalesce',
+          ['to-number', ['get', 'height_m']],
+          ['*', 3, ['coalesce',
+            ['to-number', ['get', 'levels']],
+            ['to-number', ['get', 'building:levels']],
+            2
+          ]]
+        ]
       }
     });
 
-    // Fit to buildings extent; fallback to center if empty
     const bbox = geojsonBbox(gj);
-    if (bbox) {
-      map.fitBounds(bbox, { padding: 30, pitch: 60, bearing: -17 });
-    }
+    if (bbox) map.fitBounds(bbox, { padding: 30, pitch: 60, bearing: -17 });
+
+    map.on('click', 'windsor-buildings-3d', (e) => {
+      const f = e.features && e.features[0];
+      if (!f) return;
+      const p = f.properties || {};
+      let h = Number(p.height_m);
+      if (!isFinite(h)) {
+        const lv = Number(p['building:levels'] ?? p.levels ?? 2);
+        h = lv * 3.0;
+      }
+      new maplibregl.Popup()
+        .setLngLat(e.lngLat)
+        .setHTML(`<div style="font:13px system-ui">
+          <div style="font-weight:600;margin-bottom:4px">${p.name || 'Building'}</div>
+          <div>Estimated height: ${h.toFixed(1)} m</div>
+        </div>`)
+        .addTo(map);
+    });
+    map.on('mouseenter', 'windsor-buildings-3d', () => map.getCanvas().style.cursor = 'pointer');
+    map.on('mouseleave', 'windsor-buildings-3d', () => map.getCanvas().style.cursor = '');
   } catch (e) {
     console.warn('Buildings load failed:', e);
   }
+
+  // Optional UI toggles if present in 3d.html
+  const toggleSat = document.getElementById('toggleSat');
+  if (toggleSat) {
+    toggleSat.addEventListener('change', () => {
+      map.setLayoutProperty('satellite', 'visibility', toggleSat.checked ? 'visible' : 'none');
+    });
+  }
+  const toggleShade = document.getElementById('toggleShade');
+  if (toggleShade) {
+    toggleShade.addEventListener('change', () => {
+      map.setLayoutProperty('hillshade', 'visibility', toggleShade.checked ? 'visible' : 'none');
+    });
+  }
 });
 
-// Compute a bbox [swLng, swLat, neLng, neLat] for a GeoJSON FeatureCollection
+// Simple bbox for FeatureCollection polygons
 function geojsonBbox(fc) {
   if (!fc || !fc.features || !fc.features.length) return null;
   let minX = 180, minY = 90, maxX = -180, maxY = -90;
   for (const f of fc.features) {
     const g = f.geometry;
     if (!g) continue;
-    const coords = (g.type === 'Polygon' || g.type === 'MultiPolygon')
-      ? (g.type === 'Polygon' ? g.coordinates.flat(1) : g.coordinates.flat(2))
-      : [];
+    const coords = (g.type === 'Polygon' ? g.coordinates.flat(1)
+                  : g.type === 'MultiPolygon' ? g.coordinates.flat(2)
+                  : []);
     for (const [x, y] of coords) {
       if (x < minX) minX = x; if (x > maxX) maxX = x;
       if (y < minY) minY = y; if (y > maxY) maxY = y;
     }
   }
-  if (minX === 180) return null;
-  return [[minX, minY], [maxX, maxY]];
+  return (minX === 180) ? null : [[minX, minY], [maxX, maxY]];
 }
+
