@@ -14,9 +14,8 @@
     }
     .mode-switch a { text-decoration:none; color:#06c; font-weight:600; }
 
-    /* one single control block (unique IDs) */
     #ui3d {
-      position:absolute; z-index:3; top:10px; left:110px;
+      position:absolute; z-index:3; top:10px; left:120px;
       background:#fff; border:1px solid #ddd; border-radius:8px; padding:6px 10px;
       box-shadow:0 2px 8px rgba(0,0,0,.15); font:14px system-ui;
     }
@@ -27,9 +26,9 @@
   <div id="map"></div>
   <div class="mode-switch"><a href="/Windsor_DT_Viewer/">2D map</a></div>
 
-  <!-- keep only this one block -->
   <div id="ui3d">
-    <label><input type="checkbox" id="toggleSat"> Satellite</label>
+    <label><input type="radio" name="base" id="baseStreets" checked> Streets</label>
+    <label><input type="radio" name="base" id="baseSat"> Satellite</label>
     <label><input type="checkbox" id="toggleShade" checked> Hillshade</label>
   </div>
 
