@@ -1,6 +1,8 @@
-const BASE    = '/Windsor_DT_Viewer';
+// Windsor 3D with terrain (no API keys)
+
+const BASE = '/Windsor_DT_Viewer';
 const BLD_URL = `${BASE}/data/buildings/windsor_buildings_3d.geojson`;
-const CENTER  = [-72.3851, 43.4806];
+const CENTER = [-72.3851, 43.4806];
 
 const style = {
   version: 8,
@@ -16,7 +18,7 @@ const style = {
       attribution: '© OpenStreetMap contributors'
     }
   },
-  layers: [{ id: 'osm', type: 'raster', source: 'osm', layout: { visibility: 'visible' } }]
+  layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
 };
 
 const map = new maplibregl.Map({
@@ -31,7 +33,7 @@ const map = new maplibregl.Map({
 map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 
 map.on('load', async () => {
-  map.addSource('terrain-dem', {
+  map.addSource('terrain-terrarium', {
     type: 'raster-dem',
     tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
     tileSize: 256,
@@ -39,18 +41,13 @@ map.on('load', async () => {
     encoding: 'terrarium',
     attribution: 'Elevation: AWS Terrain Tiles'
   });
-  map.setTerrain({ source: 'terrain-dem', exaggeration: 2.0 });
+  map.setTerrain({ source: 'terrain-terrarium', exaggeration: 3.0 });
 
   map.addLayer({
     id: 'hillshade',
     type: 'hillshade',
-    source: 'terrain-dem',
-    paint: {
-      'hillshade-exaggeration': 0.6,
-      'hillshade-shadow-color':   'rgba(0,0,0,0.25)',
-      'hillshade-highlight-color':'rgba(255,255,255,0.15)',
-      'hillshade-accent-color':   'rgba(0,0,0,0.10)'
-    },
+    source: 'terrain-terrarium',
+    paint: { 'hillshade-exaggeration': 0.7 },
     layout: { visibility: 'visible' }
   });
 
@@ -63,13 +60,14 @@ map.on('load', async () => {
   });
   map.addLayer({ id: 'satellite', type: 'raster', source: 'esri-sat', layout: { visibility: 'none' } });
 
-  map.setSky({ 'sun': [0, 90], 'sun-intensity': 8, 'sky-type': 'atmosphere' });
+  map.setFog({ 'horizon-blend': 0.2, range: [0.5, 10], 'star-intensity': 0 });
 
+  // Toggles
   const toggleSat   = document.getElementById('toggleSat');
   const toggleShade = document.getElementById('toggleShade');
 
   function applyBase() {
-    const satOn = !!(toggleSat && toggleSat.checked);
+    const satOn = toggleSat && toggleSat.checked;
     map.setLayoutProperty('satellite', 'visibility', satOn ? 'visible' : 'none');
     map.setLayoutProperty('osm',       'visibility', satOn ? 'none'    : 'visible');
   }
@@ -83,6 +81,7 @@ map.on('load', async () => {
     });
   }
 
+  // Buildings (if your GeoJSON exists)
   try {
     const gj = await fetch(BLD_URL, { cache: 'no-cache' }).then(r => r.json());
     (gj.features || []).forEach(f => {
