@@ -1,7 +1,9 @@
+// Windsor 3D with terrain (no API keys)
 const BASE    = '/Windsor_DT_Viewer';
 const BLD_URL = `${BASE}/data/buildings/windsor_buildings_3d.geojson`;
 const CENTER  = [-72.3851, 43.4806];
 
+// Base style: OSM raster
 const style = {
   version: 8,
   sources: {
@@ -31,6 +33,7 @@ const map = new maplibregl.Map({
 map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 
 map.on('load', async () => {
+  // DEM (MapLibre demo tiles; encoding=mapbox)
   map.addSource('terrain-dem', {
     type: 'raster-dem',
     tiles: ['https://demotiles.maplibre.org/terrain-tiles/{z}/{x}/{y}.png'],
@@ -40,6 +43,7 @@ map.on('load', async () => {
   });
   map.setTerrain({ source: 'terrain-dem', exaggeration: 2.0 });
 
+  // Hillshade from DEM
   map.addLayer({
     id: 'hillshade',
     type: 'hillshade',
@@ -48,6 +52,7 @@ map.on('load', async () => {
     layout: { visibility: 'visible' }
   });
 
+  // Satellite (Esri World Imagery), hidden by default
   map.addSource('esri-sat', {
     type: 'raster',
     tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
@@ -59,6 +64,7 @@ map.on('load', async () => {
 
   map.setSky({ 'sun': [0, 90], 'sun-intensity': 8, 'sky-type': 'atmosphere' });
 
+  // UI toggles
   const toggleSat   = document.getElementById('toggleSat');
   const toggleShade = document.getElementById('toggleShade');
 
@@ -77,6 +83,7 @@ map.on('load', async () => {
     });
   }
 
+  // Optional buildings extrusion (if file exists)
   try {
     const gj = await fetch(BLD_URL, { cache: 'no-cache' }).then(r => r.json());
     (gj.features || []).forEach(f => {
