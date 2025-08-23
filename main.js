@@ -98,6 +98,23 @@ const buildings2D = fetch('data/buildings/windsor_buildings.geojson')
   .then(layer => { layer.addTo(map); overlays['Buildings'] = layer; })
   .catch(e => console.warn('Buildings (static) failed:', e));
 
+// ---- ANR Land Units (static)
+const anrLandUnits = fetch('data/anr/anr_land_units.geojson')
+  .then(r => r.json())
+  .then(gj => L.geoJSON(gj, {
+    style: { color:'#2e7d32', weight:1, fillOpacity:0.15 },
+    onEachFeature: (f, lyr) => {
+      const p = f.properties || {};
+      lyr.bindPopup(`<div style="font:13px system-ui">
+        <div style="font-weight:600;margin-bottom:4px">ANR Land Unit</div>
+        ${p.UNIT_NAME ? `Name: ${p.UNIT_NAME}<br/>` : '' }
+        ${p.OWNER ? `Owner: ${p.OWNER}` : '' }
+      </div>`);
+    }
+  }))
+  .then(layer => { overlays['ANR Land Units'] = layer; })
+  .catch(e => console.warn('ANR Land Units failed:', e));
+
 // ---- Layer control (use the live parcels layer)
 L.control.layers(null, {
   "Parcels (VCGI live)": parcelsLive,
