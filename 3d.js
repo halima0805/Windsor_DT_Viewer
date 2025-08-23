@@ -40,12 +40,13 @@ map.on('load', () => {
 
   // DEM: MapLibre demo tiles (terrain-RGB). Must use encoding: "mapbox".
   map.addSource('terrain-dem', {
-    type: 'raster-dem',
-    tiles: ['https://demotiles.maplibre.org/terrain-tiles/{z}/{x}/{y}.png'],
-    tileSize: 256,
-    maxzoom: 14,
-    encoding: 'mapbox'
-  });
+  type: 'raster-dem',
+  tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+  tileSize: 256,
+  maxzoom: 15,
+  encoding: 'terrarium'   // <- important
+});
+
 
   // When DEM tiles arrive, this fires repeatedly; we’ll announce once.
   let announced = false;
