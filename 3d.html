@@ -1,22 +1,28 @@
-// --- UI toggles (checkboxes in 3d.html)
-const toggleSat   = document.getElementById('toggleSat');
-const toggleShade = document.getElementById('toggleShade');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Windsor Digital Twin Viewer — 3D</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+    .mode-switch { position:absolute; z-index:3; top:10px; left:10px;
+      background:#fff; border:1px solid #ddd; border-radius:8px; padding:6px 10px; font:14px system-ui; }
+    #ui3d { position:absolute; z-index:3; top:10px; left:120px;
+      background:#fff; border:1px solid #ddd; border-radius:8px; padding:6px 10px; font:14px system-ui; }
+    #ui3d label { margin-right:12px; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="mode-switch"><a href="/Windsor_DT_Viewer/">2D map</a></div>
+  <div id="ui3d">
+    <label><input type="checkbox" id="toggleSat"> Satellite</label>
+    <label><input type="checkbox" id="toggleShade" checked> Hillshade</label>
+  </div>
 
-function applyBase() {
-  const satOn = toggleSat && toggleSat.checked;
-  map.setLayoutProperty('satellite', 'visibility', satOn ? 'visible' : 'none');
-  map.setLayoutProperty('osm',       'visibility', satOn ? 'none'    : 'visible');
-}
-
-// initialize + wire events
-if (toggleSat) {
-  applyBase();
-  toggleSat.addEventListener('change', applyBase);
-}
-
-if (toggleShade) {
-  toggleShade.addEventListener('change', () => {
-    map.setLayoutProperty('hillshade', 'visibility',
-      toggleShade.checked ? 'visible' : 'none');
-  });
-}
+  <script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
+  <script src="./3d.js?v=baseline"></script>
+</body>
+</html>
