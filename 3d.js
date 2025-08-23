@@ -1,8 +1,7 @@
-// Windsor 3D with terrain + working Satellite/Hillshade toggles
-
-const BASE     = '/Windsor_DT_Viewer';
-const BLD_URL  = `${BASE}/data/buildings/windsor_buildings_3d.geojson`;
-const CENTER   = [-72.3851, 43.4806];
+// Windsor 3D with terrain + Satellite/Hillshade toggles (no API keys)
+const BASE   = '/Windsor_DT_Viewer';
+const BLD_URL = `${BASE}/data/buildings/windsor_buildings_3d.geojson`;
+const CENTER = [-72.3851, 43.4806];
 
 const style = {
   version: 8,
@@ -18,7 +17,7 @@ const style = {
       attribution: '© OpenStreetMap contributors'
     }
   },
-  layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
+  layers: [{ id: 'osm', type: 'raster', source: 'osm', layout: { visibility: 'none' } }]
 };
 
 const map = new maplibregl.Map({
@@ -33,8 +32,8 @@ const map = new maplibregl.Map({
 map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 
 map.on('load', async () => {
-  // DEM (terrain)
-  map.addSource('terrain-terrarium', {
+  // Terrain (AWS Terrarium)
+  map.addSource('terrain-dem', {
     type: 'raster-dem',
     tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
     tileSize: 256,
@@ -42,9 +41,9 @@ map.on('load', async () => {
     encoding: 'terrarium',
     attribution: 'Elevation: AWS Terrain Tiles'
   });
-  map.setTerrain({ source: 'terrain-terrarium', exaggeration: 2.0 });
+  map.setTerrain({ source: 'terrain-dem', exaggeration: 2.0 });
 
-  // Satellite (add FIRST so it sits under hillshade if that’s visible)
+  // Satellite (Esri World Imagery)
   map.addSource('esri-sat', {
     type: 'raster',
     tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
@@ -58,21 +57,17 @@ map.on('load', async () => {
   map.addLayer({
     id: 'hillshade',
     type: 'hillshade',
-    source: 'terrain-terrarium',
+    source: 'terrain-dem',
     paint: {
       'hillshade-exaggeration': 0.6,
-      // keep it subtle so satellite is still clear
       'hillshade-shadow-color':   'rgba(0,0,0,0.25)',
       'hillshade-highlight-color':'rgba(255,255,255,0.15)',
       'hillshade-accent-color':   'rgba(0,0,0,0.10)'
     },
-    layout: { visibility: 'none' } // start OFF; you can toggle it on
+    layout: { visibility: 'none' }
   });
 
-  // Start with OSM hidden (Satellite on)
-  map.setLayoutProperty('osm', 'visibility', 'none');
-
-  // UI toggles
+  // UI
   const toggleSat   = document.getElementById('toggleSat');
   const toggleShade = document.getElementById('toggleShade');
 
@@ -81,22 +76,20 @@ map.on('load', async () => {
     map.setLayoutProperty('satellite', 'visibility', satOn ? 'visible' : 'none');
     map.setLayoutProperty('osm',       'visibility', satOn ? 'none'    : 'visible');
   }
-
   if (toggleSat) {
-    toggleSat.checked = true;   // Satellite ON by default
+    toggleSat.checked = true;
     applyBase();
     toggleSat.addEventListener('change', applyBase);
   }
-
   if (toggleShade) {
-    toggleShade.checked = false; // Hillshade OFF by default
+    toggleShade.checked = false;
     map.setLayoutProperty('hillshade', 'visibility', 'none');
     toggleShade.addEventListener('change', () => {
       map.setLayoutProperty('hillshade', 'visibility', toggleShade.checked ? 'visible' : 'none');
     });
   }
 
-  // Buildings (if you add polygons later)
+  // Buildings (optional; will render if file exists with polygons)
   try {
     const gj = await fetch(BLD_URL, { cache: 'no-cache' }).then(r => r.json());
     (gj.features || []).forEach(f => {
