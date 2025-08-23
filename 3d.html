@@ -1,38 +1,113 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Windsor Digital Twin Viewer — 3D</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" rel="stylesheet" />
-  <style>
-    html, body, #map { height: 100%; margin: 0; }
-    .mode-switch {
-      position:absolute; z-index:3; top:10px; left:10px;
-      background:#fff; border:1px solid #ddd; border-radius:8px; padding:6px 10px;
-      box-shadow:0 2px 8px rgba(0,0,0,.15); font:14px/1.2 system-ui;
+// Minimal 3D terrain sanity check for Windsor
+
+const WINDSOR_CENTER = [-72.3851, 43.4806];
+
+// Style with OSM raster only
+const style = {
+  version: 8,
+  sources: {
+    osm: {
+      type: 'raster',
+      tiles: [
+        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+      ],
+      tileSize: 256,
+      attribution: '© OpenStreetMap contributors'
     }
-    .mode-switch a { text-decoration:none; color:#06c; font-weight:600; }
+  },
+  layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
+};
 
-    #ui3d {
-      position:absolute; z-index:3; top:10px; left:120px;
-      background:#fff; border:1px solid #ddd; border-radius:8px; padding:6px 10px;
-      box-shadow:0 2px 8px rgba(0,0,0,.15); font:14px system-ui;
+const map = new maplibregl.Map({
+  container: 'map',
+  style,
+  center: WINDSOR_CENTER,
+  zoom: 13.5,
+  pitch: 60,
+  bearing: -17
+});
+
+map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+
+// Log any errors so we can see them
+map.on('error', e => console.error('Map error:', e.error || e));
+
+// Add terrain + hillshade + optional satellite
+map.on('load', () => {
+  console.log('Map style loaded');
+
+  // DEM: MapLibre demo tiles (terrain-RGB). Must use encoding: "mapbox".
+  map.addSource('terrain-dem', {
+    type: 'raster-dem',
+    tiles: ['https://demotiles.maplibre.org/terrain-tiles/{z}/{x}/{y}.png'],
+    tileSize: 256,
+    maxzoom: 14,
+    encoding: 'mapbox'
+  });
+
+  // When DEM tiles arrive, this fires repeatedly; we’ll announce once.
+  let announced = false;
+  map.on('sourcedata', (e) => {
+    if (e.sourceId === 'terrain-dem' && map.isSourceLoaded('terrain-dem') && !announced) {
+      console.log('DEM source is loaded');
+      announced = true;
     }
-    #ui3d label { margin-right:12px; }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <div class="mode-switch"><a href="/Windsor_DT_Viewer/">2D map</a></div>
+  });
 
-  <div id="ui3d">
-    <label><input type="radio" name="base" id="baseStreets" checked> Streets</label>
-    <label><input type="radio" name="base" id="baseSat"> Satellite</label>
-    <label><input type="checkbox" id="toggleShade" checked> Hillshade</label>
-  </div>
+  // Apply terrain with a big exaggeration so the relief is unmistakable
+  map.setTerrain({ source: 'terrain-dem', exaggeration: 4.0 });
+  console.log('setTerrain called');
 
-  <script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
-  <script src="./3d.js"></script>
-</body>
-</html>
+  // Hillshade derived from DEM
+  map.addLayer({
+    id: 'hillshade',
+    type: 'hillshade',
+    source: 'terrain-dem',
+    layout: { visibility: 'visible' },
+    paint: { 'hillshade-exaggeration': 0.8 }
+  });
+
+  // Esri World Imagery raster (optional)
+  map.addSource('esri-sat', {
+    type: 'raster',
+    tiles: [
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+    ],
+    tileSize: 256,
+    maxzoom: 19,
+    attribution: 'Imagery: Esri, Maxar, Earthstar Geographics, USDA, USGS, AeroGRID, IGN, GIS User Community'
+  });
+  map.addLayer({ id: 'satellite', type: 'raster', source: 'esri-sat', layout: { visibility: 'none' } });
+
+  // Simple sky for depth cue
+  map.setSky({
+    'sun': [0, 90],
+    'sun-intensity': 8,
+    'sky-type': 'atmosphere'
+  });
+
+  // UI wiring
+  const baseStreets = document.getElementById('baseStreets');
+  const baseSat     = document.getElementById('baseSat');
+  const toggleShade = document.getElementById('toggleShade');
+
+  function applyBase() {
+    const streets = baseStreets && baseStreets.checked;
+    map.setLayoutProperty('osm',       'visibility', streets ? 'visible' : 'none');
+    map.setLayoutProperty('satellite', 'visibility', streets ? 'none'    : 'visible');
+  }
+  if (baseStreets && baseSat) {
+    baseStreets.addEventListener('change', applyBase);
+    baseSat.addEventListener('change', applyBase);
+    applyBase();
+  }
+  if (toggleShade) {
+    toggleShade.addEventListener('change', () => {
+      map.setLayoutProperty('hillshade', 'visibility', toggleShade.checked ? 'visible' : 'none');
+    });
+  }
+
+  console.log('3D setup complete');
+});
