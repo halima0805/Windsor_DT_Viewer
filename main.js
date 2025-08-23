@@ -7,11 +7,11 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors'
 }).addTo(map);
 
-// Overlay groups you already use
+// Overlay groups
 const zoningLayer = L.layerGroup().addTo(map);
 const floodLayer  = L.layerGroup().addTo(map);
 
-// ---- Zoning (your existing local file)
+// ---- Zoning (existing local file)
 fetch('axisgis_zoning_live.geojson')
   .then(res => res.json())
   .then(data => {
@@ -22,7 +22,8 @@ fetch('axisgis_zoning_live.geojson')
         layer.bindPopup(`Zoning District: ${zone}`);
       }
     }).addTo(zoningLayer);
-    // Fit to zoning if you want an initial view; keep or remove as you prefer
+    
+    // Fit to zoning to an initial view;
     map.fitBounds(layer.getBounds());
   })
   .catch(err => console.error('Error loading zoning layer:', err));
@@ -54,14 +55,14 @@ const parcelsLive = L.esri.featureLayer({
   </div>`;
 }).addTo(map);
 
-// Optionally fit once to the Windsor parcel extent (removes guesswork)
+// fit once to the Windsor parcel extent 
 L.esri.query({ url: PARCELS_URL })
   .where("UPPER(TNAME) = 'WINDSOR'")
   .bounds((err, bounds) => {
     if (!err && bounds) map.fitBounds(bounds, { padding: [20, 20] });
   });
 
-// ---- Flood (your existing local file)
+// ---- Flood 
 fetch('flood_zones.geojson')
   .then(res => res.json())
   .then(data => {
@@ -81,7 +82,23 @@ fetch('flood_zones.geojson')
   })
   .catch(err => console.error('Error loading flood layer:', err));
 
-// ---- Layer control (use the live parcels layer here)
+// ---- Buildings (static polygons; 2D fill)
+const buildings2D = fetch('data/buildings/windsor_buildings.geojson')
+  .then(r => r.json())
+  .then(gj => L.geoJSON(gj, {
+    style: { color:'#0c2038', weight:0.5, fillColor:'#8fb4d9', fillOpacity:0.5 },
+    onEachFeature: (f, lyr) => {
+      const p = f.properties || {};
+      lyr.bindPopup(`<div style="font:13px system-ui">
+        <div style="font-weight:600;margin-bottom:4px">${p.name || 'Building'}</div>
+        ${p.height_m ? `Height (est): ${Number(p.height_m).toFixed(1)} m` : ''}
+      </div>`);
+    }
+  }))
+  .then(layer => { layer.addTo(map); overlays['Buildings'] = layer; })
+  .catch(e => console.warn('Buildings (static) failed:', e));
+
+// ---- Layer control (use the live parcels layer)
 L.control.layers(null, {
   "Parcels (VCGI live)": parcelsLive,
   "Zoning Districts": zoningLayer,
