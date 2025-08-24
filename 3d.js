@@ -1,8 +1,7 @@
-// Minimal 3D terrain baseline for Windsor — confirmed working
+// 3D terrain baseline for Windsor (confirmed working)
 
-const WINDSOR_CENTER = [-72.3851, 43.4806];
+const CENTER = [-72.3851, 43.4806];
 
-// OSM raster basemap
 const style = {
   version: 8,
   sources: {
@@ -25,7 +24,7 @@ const style = {
 const map = new maplibregl.Map({
   container: 'map',
   style,
-  center: WINDSOR_CENTER,
+  center: CENTER,
   zoom: 13.5,
   pitch: 60,
   bearing: -17
@@ -33,11 +32,8 @@ const map = new maplibregl.Map({
 
 map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 
-// Log any errors to help diagnose
-map.on('error', e => console.error('Map error:', e.error || e));
-
 map.on('load', () => {
-  // DEM: MapLibre demo tiles (terrain-RGB) — encoding must be "mapbox"
+  // DEM (MapLibre terrain-RGB)
   map.addSource('terrain-dem', {
     type: 'raster-dem',
     tiles: ['https://demotiles.maplibre.org/terrain-tiles/{z}/{x}/{y}.png'],
@@ -46,10 +42,9 @@ map.on('load', () => {
     encoding: 'mapbox'
   });
 
-  // Apply terrain
   map.setTerrain({ source: 'terrain-dem', exaggeration: 4.0 });
 
-  // Hillshade derived from DEM
+  // Hillshade
   map.addLayer({
     id: 'hillshade',
     type: 'hillshade',
@@ -58,7 +53,7 @@ map.on('load', () => {
     paint: { 'hillshade-exaggeration': 0.8 }
   });
 
-  // Optional satellite (Esri World Imagery), hidden by default
+  // Satellite (Esri World Imagery), hidden by default
   map.addSource('esri-sat', {
     type: 'raster',
     tiles: [
@@ -75,10 +70,7 @@ map.on('load', () => {
     layout: { visibility: 'none' }
   });
 
-  // Simple sky for depth cue
-  map.setSky({ 'sun': [0, 90], 'sun-intensity': 8, 'sky-type': 'atmosphere' });
-
-  // UI wiring for the two checkboxes
+  // UI toggles
   const toggleSat   = document.getElementById('toggleSat');
   const toggleShade = document.getElementById('toggleShade');
 
