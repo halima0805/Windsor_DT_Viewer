@@ -1,143 +1,117 @@
-// 3d_overlays.js — add Windsor overlays on top of your existing 3D map
-(function () {
-  if (!window.map) {
-    console.error('3d_overlays.js: window.map is not available.');
-    return;
+// Windsor 3D with terrain (no API keys)
+const BASE    = '/Windsor_DT_Viewer';
+const BLD_URL = `${BASE}/data/buildings/windsor_buildings_3d.geojson`;
+const CENTER  = [-72.3851, 43.4806];
+
+// OSM raster basemap
+const style = {
+  version: 8,
+  sources: {
+    osm: {
+      type: 'raster',
+      tiles: [
+        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
+      ],
+      tileSize: 256,
+      attribution: '© OpenStreetMap contributors'
+    }
+  },
+  layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
+};
+
+const map = new maplibregl.Map({
+  container: 'map',
+  style,
+  center: CENTER,
+  zoom: 13.5,
+  pitch: 60,
+  bearing: -17
+});
+window.map = map; // <-- export so overlays file can access it
+
+map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+
+map.on('load', async () => {
+  // DEM: AWS Terrarium tiles
+  map.addSource('terrain-dem', {
+    type: 'raster-dem',
+    tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+    tileSize: 256,
+    maxzoom: 15,
+    encoding: 'terrarium',
+    attribution: 'Elevation: AWS Terrain Tiles'
+  });
+  map.setTerrain({ source: 'terrain-dem', exaggeration: 1.8 });
+
+  // Hillshade from DEM (visible by default)
+  map.addLayer({
+    id: 'hillshade',
+    type: 'hillshade',
+    source: 'terrain-dem',
+    layout: { visibility: 'visible' },
+    paint: { 'hillshade-exaggeration': 0.7 }
+  });
+
+  // Optional satellite (hidden until toggled)
+  map.addSource('esri-sat', {
+    type: 'raster',
+    tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+    tileSize: 256,
+    maxzoom: 19,
+    attribution: 'Imagery: Esri, Maxar, Earthstar Geographics, USDA, USGS, AeroGRID, IGN, GIS User Community'
+  });
+  map.addLayer({ id: 'satellite', type: 'raster', source: 'esri-sat', layout: { visibility: 'none' } });
+
+  // Simple sky for depth cue
+  map.setSky({ 'sun': [0, 90], 'sun-intensity': 8, 'sky-type': 'atmosphere' });
+
+  // Wire the two base checkboxes (terrain works regardless)
+  const toggleSat   = document.getElementById('toggleSat');
+  const toggleShade = document.getElementById('toggleShade');
+
+  if (toggleSat) {
+    toggleSat.addEventListener('change', () => {
+      map.setLayoutProperty('satellite', 'visibility', toggleSat.checked ? 'visible' : 'none');
+      // OSM stays on underneath; satellite draws above it
+    });
+  }
+  if (toggleShade) {
+    toggleShade.addEventListener('change', () => {
+      map.setLayoutProperty('hillshade', 'visibility', toggleShade.checked ? 'visible' : 'none');
+    });
   }
 
-  const BASE         = '/Windsor_DT_Viewer';
-  const ZONING_LOCAL = `${BASE}/data/zoning_layers/axisgis_zoning_live.geojson`;
-  const OVERLAY_LOCAL= `${BASE}/data/zoning_layers/windsor_zoning_overlay.geojson`;
-
-  // External services
-  const PARCELS_URL =
-    'https://services1.arcgis.com/BkFxaEFNwHqX3tAw/arcgis/rest/services/FS_VCGI_OPENDATA_Cadastral_VTPARCELS_poly_standardized_parcels_SP_v1/FeatureServer/0';
-  const FEMA_URL =
-    'https://anrmaps.vermont.gov/arcgis/rest/services/Open_Data/OPENDATA_ANR_EMERGENCY_SP_NOCACHE_v2/MapServer/57';
-
-  function addOverlays() {
-    // ---- Parcels (VCGI, Windsor only) ----
-    (async () => {
-      try {
-        const where = "UPPER(TNAME) = 'WINDSOR'";
-        const outFields = ['OBJECTID','TNAME','PARCID','OWNER1','E911ADDR','ACRESGL'].join(',');
-        const q = `${PARCELS_URL}/query?where=${encodeURIComponent(where)}&outFields=${encodeURIComponent(outFields)}&outSR=4326&f=geojson`;
-        const gj = await fetch(q, { cache: 'no-cache' }).then(r => r.json());
-        if (!gj || !gj.type) throw new Error('Parcels response not GeoJSON');
-        if (!map.getSource('parcels-gj')) map.addSource('parcels-gj', { type: 'geojson', data: gj });
-        if (!map.getLayer('parcels-line')) {
-          map.addLayer({
-            id: 'parcels-line',
-            type: 'line',
-            source: 'parcels-gj',
-            paint: { 'line-color': '#333', 'line-width': 1.2 }
-          });
-        }
-      } catch (e) { console.warn('Parcels load failed:', e); }
-    })();
-
-    // ---- Zoning (local) ----
-    (async () => {
-      try {
-        const gj = await fetch(ZONING_LOCAL, { cache: 'no-cache' }).then(r => r.json());
-        if (!map.getSource('zoning')) map.addSource('zoning', { type: 'geojson', data: gj });
-        if (!map.getLayer('zoning-fill')) {
-          map.addLayer({
-            id: 'zoning-fill',
-            type: 'fill',
-            source: 'zoning',
-            paint: { 'fill-color': '#3f51b5', 'fill-opacity': 0.10 }
-          });
-        }
-        if (!map.getLayer('zoning-line')) {
-          map.addLayer({
-            id: 'zoning-line',
-            type: 'line',
-            source: 'zoning',
-            paint: { 'line-color': '#3f51b5', 'line-width': 1 }
-          });
-        }
-      } catch (e) { console.warn('Zoning load failed:', e); }
-    })();
-
-    // ---- Zoning Overlay (local) ----
-    (async () => {
-      try {
-        const gj = await fetch(OVERLAY_LOCAL, { cache: 'no-cache' }).then(r => r.json());
-        if (!map.getSource('zoning-overlay')) map.addSource('zoning-overlay', { type: 'geojson', data: gj });
-        if (!map.getLayer('overlay-fill')) {
-          map.addLayer({
-            id: 'overlay-fill',
-            type: 'fill',
-            source: 'zoning-overlay',
-            paint: { 'fill-color': '#9c27b0', 'fill-opacity': 0.15 }
-          });
-        }
-        if (!map.getLayer('overlay-line')) {
-          map.addLayer({
-            id: 'overlay-line',
-            type: 'line',
-            source: 'zoning-overlay',
-            paint: { 'line-color': '#9c27b0', 'line-width': 2, 'line-dasharray': [4, 2] }
-          });
-        }
-      } catch (e) { console.warn('Overlay load failed:', e); }
-    })();
-
-    // ---- FEMA Flood (ANR, clipped to current view once) ----
-    (async () => {
-      try {
-        const b = map.getBounds();
-        const env = {
-          xmin: b.getWest(), ymin: b.getSouth(), xmax: b.getEast(), ymax: b.getNorth(),
-          spatialReference: { wkid: 4326 }
-        };
-        const params =
-          `where=1%3D1&outFields=${encodeURIComponent('FLD_ZONE,SFHA_TF')}` +
-          `&geometry=${encodeURIComponent(JSON.stringify(env))}` +
-          `&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outSR=4326&f=geojson`;
-        const gj = await fetch(`${FEMA_URL}/query?${params}`, { cache: 'no-cache' }).then(r => r.json());
-        if (!gj || !gj.type) throw new Error('FEMA response not GeoJSON');
-        if (!map.getSource('fema-flood')) map.addSource('fema-flood', { type: 'geojson', data: gj });
-        if (!map.getLayer('fema-fill')) {
-          map.addLayer({
-            id: 'fema-fill',
-            type: 'fill',
-            source: 'fema-flood',
-            paint: {
-              'fill-color': ['case', ['==', ['get', 'FLD_ZONE'], 'AE'], '#d32f2f', '#1976d2'],
-              'fill-opacity': 0.20
-            }
-          });
-        }
-        if (!map.getLayer('fema-line')) {
-          map.addLayer({
-            id: 'fema-line',
-            type: 'line',
-            source: 'fema-flood',
-            paint: { 'line-color': '#1976d2', 'line-width': 1 }
-          });
-        }
-      } catch (e) { console.warn('FEMA load failed:', e); }
-    })();
-
-    // ---- Wire the four overlay checkboxes ----
-    const setVis = (id, on) => { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none'); };
-    const wire   = (inputId, layerIds) => {
-      const el = document.getElementById(inputId);
-      if (!el) return;
-      const apply = () => layerIds.forEach(l => setVis(l, el.checked));
-      el.addEventListener('change', apply);
-      // initial
-      apply();
-    };
-
-    wire('lgParcels', ['parcels-line']);
-    wire('lgZoning',  ['zoning-fill','zoning-line']);
-    wire('lgOverlay', ['overlay-fill','overlay-line']);
-    wire('lgFlood',   ['fema-fill','fema-line']);
-  }
-
-  if (map.isStyleLoaded && map.isStyleLoaded()) addOverlays();
-  else map.on('load', addOverlays);
-})();
+  // Optional 3D buildings (only if your GeoJSON exists)
+  try {
+    const gj = await fetch(BLD_URL, { cache: 'no-cache' }).then(r => r.json());
+    (gj.features || []).forEach(f => {
+      const p = f.properties || (f.properties = {});
+      if (p.height_m == null) {
+        const lv = Number(p['building:levels'] ?? p.levels ?? 2);
+        p.height_m = lv * 3.0;
+      }
+    });
+    map.addSource('windsor-buildings', { type: 'geojson', data: gj });
+    map.addLayer({
+      id: 'windsor-buildings-3d',
+      type: 'fill-extrusion',
+      source: 'windsor-buildings',
+      paint: {
+        'fill-extrusion-color': '#8fb4d9',
+        'fill-extrusion-opacity': 0.9,
+        'fill-extrusion-height': [
+          'coalesce',
+          ['to-number', ['get', 'height_m']],
+          ['*', 3, ['coalesce',
+            ['to-number', ['get', 'levels']],
+            ['to-number', ['get', 'building:levels']],
+            2
+          ]]
+        ],
+        'fill-extrusion-base': 0
+      }
+    });
+  } catch (_) {}
+});
