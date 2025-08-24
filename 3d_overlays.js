@@ -119,3 +119,86 @@
   if (map.isStyleLoaded && map.isStyleLoaded()) addOverlays();
   else map.on('load', addOverlays);
 })();
+
+// === Buildings footprints (VCGI -> Windsor clip, no API key) ===
+// Source: VCGI "Vermont_US_Buildings" (FeatureServer, public GeoJSON)
+(function () {
+  const LAYER_URL = 'https://services6.arcgis.com/Do88DoK2xjTUCXd1/arcgis/rest/services/Vermont_US_Buildings/FeatureServer/1';
+
+  function whenMapReady(fn) {
+    if (!window.map) return setTimeout(() => whenMapReady(fn), 80);
+    const m = window.map;
+    if (m.loaded()) fn(m); else m.once('load', () => fn(m));
+  }
+
+  async function fetchBuildingsGeoJSON(m) {
+    // clip to current view to keep it fast
+    const b = m.getBounds();
+    const env = {
+      xmin: b.getWest(), ymin: b.getSouth(),
+      xmax: b.getEast(), ymax: b.getNorth(),
+      spatialReference: { wkid: 4326 }
+    };
+    const params =
+      `where=1%3D1` +
+      `&outFields=${encodeURIComponent('building,name')}` +
+      `&geometry=${encodeURIComponent(JSON.stringify(env))}` +
+      `&geometryType=esriGeometryEnvelope&inSR=4326` +
+      `&spatialRel=esriSpatialRelIntersects&outSR=4326` +
+      `&f=geojson&returnGeometry=true`;
+    const url = `${LAYER_URL}/query?${params}`;
+    const gj = await fetch(url, { cache: 'no-cache' }).then(r => r.json());
+    return gj;
+  }
+
+  function addOrUpdateBuildingsLayer(m, gj) {
+    // make a gentle default height for 3D extrusions if you want them later
+    (gj.features || []).forEach(f => {
+      const p = f.properties || (f.properties = {});
+      if (p.height_m == null) p.height_m = 6; // ~2 stories default
+    });
+
+    if (!m.getSource('vt-bld-src')) {
+      m.addSource('vt-bld-src', { type: 'geojson', data: gj });
+      // 2D footprints (drape on terrain)
+      m.addLayer({
+        id: 'vt-bld-fill',
+        type: 'fill',
+        source: 'vt-bld-src',
+        paint: { 'fill-color': '#0c2038', 'fill-opacity': 0.35 }
+      });
+      m.addLayer({
+        id: 'vt-bld-line',
+        type: 'line',
+        source: 'vt-bld-src',
+        paint: { 'line-color': '#0c2038', 'line-width': 0.6 }
+      });
+    } else {
+      m.getSource('vt-bld-src').setData(gj);
+    }
+  }
+
+  function wireBuildingsToggle(m) {
+    const cb = document.getElementById('lgBuildings');
+    if (!cb) return;
+    const apply = () => {
+      ['vt-bld-fill','vt-bld-line'].forEach(id => {
+        if (m.getLayer(id)) m.setLayoutProperty(id, 'visibility', cb.checked ? 'visible' : 'none');
+      });
+    };
+    cb.addEventListener('change', apply);
+    apply();
+  }
+
+  whenMapReady(async (m) => {
+    try {
+      const gj = await fetchBuildingsGeoJSON(m);
+      addOrUpdateBuildingsLayer(m, gj);
+      wireBuildingsToggle(m);
+      console.log(`VT buildings loaded: ${gj.features?.length || 0}`);
+    } catch (e) {
+      console.warn('VT buildings load failed:', e);
+    }
+  });
+})();
+
