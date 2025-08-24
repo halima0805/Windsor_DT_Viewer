@@ -13,21 +13,28 @@
       box-shadow:0 2px 8px rgba(0,0,0,.15); font:14px/1.2 system-ui;
     }
     .mode-switch a { text-decoration:none; color:#06c; font-weight:600; }
+
     #ui3d {
-      position:absolute; z-index:3; top:10px; left:110px;
+      position:absolute; z-index:3; top:10px; left:140px;
       background:#fff; border:1px solid #ddd; border-radius:8px; padding:6px 10px;
       box-shadow:0 2px 8px rgba(0,0,0,.15); font:14px system-ui;
+      display:flex; gap:12px; flex-wrap:wrap;
     }
-    #ui3d label { margin-right:12px; }
+    #ui3d label { white-space:nowrap; }
   </style>
 </head>
 <body>
   <div id="map"></div>
+
   <div class="mode-switch"><a href="/Windsor_DT_Viewer/">2D map</a></div>
 
   <div id="ui3d">
     <label><input type="checkbox" id="toggleSat"> Satellite</label>
     <label><input type="checkbox" id="toggleShade" checked> Hillshade</label>
+    <label><input type="checkbox" id="lgParcels" checked> Parcels</label>
+    <label><input type="checkbox" id="lgZoning" checked> Zoning</label>
+    <label><input type="checkbox" id="lgOverlay" checked> Zoning Overlay</label>
+    <label><input type="checkbox" id="lgFlood" checked> FEMA Flood</label>
   </div>
 
   <script src="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.js"></script>
